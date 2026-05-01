@@ -1,4 +1,5 @@
-const API_URL = "https://tteam-task-manager-full-stack-ethara-production.up.railway.app/api";
+const API_URL =
+  "https://tteam-task-manager-full-stack-ethara-production.up.railway.app/";
 
 export const authToken = () => localStorage.getItem("ttm_token");
 export const authUser = () =>
