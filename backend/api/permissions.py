@@ -8,7 +8,11 @@ class IsProjectMember(permissions.BasePermission):
             project = obj.project
         else:
             project = obj
-        return project.owner == request.user or ProjectMember.objects.filter(project=project, member=request.user).exists()
+        return (
+            request.user.role == request.user.Role.ADMIN
+            or project.owner == request.user
+            or ProjectMember.objects.filter(project=project, member=request.user).exists()
+        )
 
 
 class IsProjectOwnerOrAdmin(permissions.BasePermission):

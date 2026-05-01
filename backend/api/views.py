@@ -62,6 +62,8 @@ class ProjectListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        if self.request.user.role == self.request.user.Role.ADMIN:
+            return Project.objects.all().distinct().prefetch_related("members", "tasks")
         return Project.objects.filter(
             Q(owner=self.request.user) | Q(members=self.request.user)
         ).distinct().prefetch_related("members", "tasks")
@@ -70,6 +72,12 @@ class ProjectListCreateView(generics.ListCreateAPIView):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
         return Response({"projects": serializer.data})
+
+
+class UserListView(generics.ListAPIView):
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    queryset = User.objects.all()
 
     def perform_create(self, serializer):
         serializer.save()
@@ -111,6 +119,8 @@ class TaskListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        if self.request.user.role == self.request.user.Role.ADMIN:
+            return Task.objects.all().select_related("project", "assignee").distinct()
         return Task.objects.filter(
             Q(project__owner=self.request.user) | Q(project__members=self.request.user)
         ).select_related("project", "assignee").distinct()
@@ -129,9 +139,12 @@ class DashboardView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        tasks = Task.objects.filter(
-            Q(project__owner=request.user) | Q(project__members=request.user)
-        ).select_related("project", "assignee").distinct()
+        if request.user.role == request.user.Role.ADMIN:
+            tasks = Task.objects.all().select_related("project", "assignee").distinct()
+        else:
+            tasks = Task.objects.filter(
+                Q(project__owner=request.user) | Q(project__members=request.user)
+            ).select_related("project", "assignee").distinct()
 
         counts = {"TODO": 0, "IN_PROGRESS": 0, "DONE": 0, "overdue": 0}
         overdue_tasks = []

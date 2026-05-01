@@ -48,19 +48,43 @@ class ProjectSerializer(serializers.ModelSerializer):
     owner = UserSerializer(read_only=True)
     members = UserSerializer(many=True, read_only=True)
     tasks = serializers.SerializerMethodField()
+    member_emails = serializers.ListField(
+        child=serializers.EmailField(), write_only=True, required=False
+    )
 
     class Meta:
         model = Project
-        fields = ["id", "name", "description", "owner", "members", "tasks", "created_at"]
+        fields = [
+            "id",
+            "name",
+            "description",
+            "owner",
+            "members",
+            "tasks",
+            "member_emails",
+            "created_at",
+        ]
         read_only_fields = ["id", "owner", "members", "tasks", "created_at"]
 
     def get_tasks(self, obj):
         return TaskSerializer(obj.tasks.all(), many=True).data
 
     def create(self, validated_data):
+        member_emails = validated_data.pop("member_emails", [])
         user = self.context["request"].user
         project = Project.objects.create(owner=user, **validated_data)
         ProjectMember.objects.create(project=project, member=user)
+
+        for email in member_emails:
+            try:
+                member = User.objects.get(email__iexact=email)
+            except User.DoesNotExist:
+                raise serializers.ValidationError(
+                    {"member_emails": f"User with email {email} does not exist."}
+                )
+            if member != user:
+                ProjectMember.objects.get_or_create(project=project, member=member)
+
         return project
 
 
@@ -77,7 +101,11 @@ class TaskSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         project = attrs.get("project")
         user = self.context["request"].user
-        if project and not ProjectMember.objects.filter(project=project, member=user).exists() and project.owner != user:
+        if project and not (
+            user.role == user.Role.ADMIN
+            or ProjectMember.objects.filter(project=project, member=user).exists()
+            or project.owner == user
+        ):
             raise serializers.ValidationError("You must be a member of the selected project.")
         return attrs
 
