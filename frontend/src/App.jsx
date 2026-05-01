@@ -11,6 +11,7 @@ import {
 const API_URL = "/api";
 
 const authToken = () => localStorage.getItem("ttm_token");
+const authUser = () => JSON.parse(localStorage.getItem("ttm_user") || "null");
 
 function fetchJson(path, options = {}) {
   const headers = {
@@ -48,7 +49,8 @@ function LoginPage({ onAuth }) {
         body: JSON.stringify(form),
       });
       localStorage.setItem("ttm_token", data.access);
-      onAuth(data.access);
+      localStorage.setItem("ttm_user", JSON.stringify(data.user));
+      onAuth(data.access, data.user);
       navigate("/dashboard");
     } catch (err) {
       setError(
@@ -109,7 +111,8 @@ function SignupPage({ onAuth }) {
         body: JSON.stringify(form),
       });
       localStorage.setItem("ttm_token", data.access);
-      onAuth(data.access);
+      localStorage.setItem("ttm_user", JSON.stringify(data.user));
+      onAuth(data.access, data.user);
       navigate("/dashboard");
     } catch (err) {
       setError(
@@ -165,7 +168,8 @@ function SignupPage({ onAuth }) {
   );
 }
 
-function DashboardPage() {
+function DashboardPage({ user }) {
+  const navigate = useNavigate();
   const [dashboard, setDashboard] = useState(null);
   const [error, setError] = useState(null);
 
@@ -186,6 +190,12 @@ function DashboardPage() {
   return (
     <div className="page">
       <h1>Dashboard</h1>
+      {user?.role === "ADMIN" && (
+        <div className="admin-actions">
+          <p>As an admin, you can add projects and tasks from Projects.</p>
+          <button onClick={() => navigate("/projects")}>Go to Projects</button>
+        </div>
+      )}
       <div className="stats-grid">
         <div className="stat-card">To Do: {dashboard.counts.TODO}</div>
         <div className="stat-card">
@@ -218,6 +228,8 @@ function ProjectsPage() {
   const [projects, setProjects] = useState(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [memberEmails, setMemberEmails] = useState([]);
+  const [users, setUsers] = useState([]);
   const [error, setError] = useState(null);
   const [editId, setEditId] = useState(null);
   const [editName, setEditName] = useState("");
@@ -231,6 +243,9 @@ function ProjectsPage() {
 
   useEffect(() => {
     loadProjects();
+    fetchJson("/users/")
+      .then((data) => setUsers(data))
+      .catch(() => setUsers([]));
   }, []);
 
   const createProject = async (event) => {
@@ -239,11 +254,16 @@ function ProjectsPage() {
     try {
       const data = await fetchJson("/projects/", {
         method: "POST",
-        body: JSON.stringify({ name, description }),
+        body: JSON.stringify({
+          name,
+          description,
+          member_emails: memberEmails,
+        }),
       });
-      setProjects((prev) => [data.project, ...(prev || [])]);
+      setProjects((prev) => [data, ...(prev || [])]);
       setName("");
       setDescription("");
+      setMemberEmails([]);
     } catch (err) {
       setError(err.detail || "Could not create project");
     }
@@ -304,6 +324,23 @@ function ProjectsPage() {
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Description"
         />
+        <label>Assign Members</label>
+        <select
+          multiple
+          value={memberEmails}
+          onChange={(e) =>
+            setMemberEmails(
+              Array.from(e.target.selectedOptions, (option) => option.value),
+            )
+          }
+          size={Math.min(6, users.length || 3)}
+        >
+          {users.map((user) => (
+            <option key={user.id} value={user.email}>
+              {user.email}
+            </option>
+          ))}
+        </select>
         <button type="submit">Create project</button>
       </form>
       {error && <p className="error">{error}</p>}
@@ -356,12 +393,17 @@ function ProjectsPage() {
   );
 }
 
-function Nav({ onLogout }) {
+function Nav({ onLogout, user }) {
   return (
     <nav className="topbar">
-      <Link to="/dashboard">Dashboard</Link>
-      <Link to="/projects">Projects</Link>
-      <button onClick={onLogout}>Logout</button>
+      <div className="nav-left">
+        <Link to="/dashboard">Dashboard</Link>
+        <Link to="/projects">Projects</Link>
+      </div>
+      <div className="nav-right">
+        {user && <span className="role-badge">{user.role}</span>}
+        <button onClick={onLogout}>Logout</button>
+      </div>
     </nav>
   );
 }
@@ -416,8 +458,8 @@ function ProjectDetailPage() {
           title: task.title,
           description: task.description,
           due_date: task.due_date || null,
-          projectId: Number(id),
-          assigneeId: task.assignee_id ? Number(task.assignee_id) : null,
+          project: Number(id),
+          assignee_id: task.assignee_id ? Number(task.assignee_id) : null,
         }),
       });
       setTask({ title: "", description: "", due_date: "", assignee_id: "" });
@@ -431,7 +473,7 @@ function ProjectDetailPage() {
     setError(null);
     try {
       await fetchJson(`/tasks/${taskId}/`, {
-        method: "PUT",
+        method: "PATCH",
         body: JSON.stringify({ status }),
       });
       loadProject();
@@ -501,11 +543,18 @@ function ProjectDetailPage() {
             value={task.due_date}
             onChange={(e) => setTask({ ...task, due_date: e.target.value })}
           />
-          <input
+          <label>Assignee</label>
+          <select
             value={task.assignee_id}
             onChange={(e) => setTask({ ...task, assignee_id: e.target.value })}
-            placeholder="Assignee ID"
-          />
+          >
+            <option value="">Unassigned</option>
+            {project.members.map((member) => (
+              <option key={member.id} value={member.id}>
+                {member.email}
+              </option>
+            ))}
+          </select>
           <button type="submit">Create task</button>
         </form>
         <div className="task-list">
@@ -549,23 +598,31 @@ function RequireAuth({ children }) {
 
 export default function App() {
   const [token, setToken] = useState(authToken());
+  const [user, setUser] = useState(authUser());
+
+  const handleAuth = (tokenValue, userValue) => {
+    setToken(tokenValue);
+    setUser(userValue);
+  };
 
   const logout = () => {
     localStorage.removeItem("ttm_token");
+    localStorage.removeItem("ttm_user");
     setToken(null);
+    setUser(null);
   };
 
   return (
     <div className="app-shell">
-      {token && <Nav onLogout={logout} />}
+      {token && <Nav onLogout={logout} user={user} />}
       <Routes>
-        <Route path="/login" element={<LoginPage onAuth={setToken} />} />
-        <Route path="/signup" element={<SignupPage onAuth={setToken} />} />
+        <Route path="/login" element={<LoginPage onAuth={handleAuth} />} />
+        <Route path="/signup" element={<SignupPage onAuth={handleAuth} />} />
         <Route
           path="/dashboard"
           element={
             <RequireAuth>
-              <DashboardPage />
+              <DashboardPage user={user} />
             </RequireAuth>
           }
         />
@@ -573,7 +630,7 @@ export default function App() {
           path="/projects"
           element={
             <RequireAuth>
-              <ProjectsPage />
+              <ProjectsPage user={user} />
             </RequireAuth>
           }
         />
@@ -581,7 +638,7 @@ export default function App() {
           path="/projects/:id"
           element={
             <RequireAuth>
-              <ProjectDetailPage />
+              <ProjectDetailPage user={user} />
             </RequireAuth>
           }
         />
