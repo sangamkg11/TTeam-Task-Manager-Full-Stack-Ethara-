@@ -8,7 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-change-me")
 DEBUG = os.environ.get("DEBUG", "True") == "True"
-ALLOWED_HOSTS = [host.strip() for host in os.environ.get("ALLOWED_HOSTS", "localhost").split(",") if host.strip()]
+ALLOWED_HOSTS = ['tteam-task-manager-full-stack-ethara-production.up.railway.app']
 
 INSTALLED_APPS = [
     "django.contrib.admin",

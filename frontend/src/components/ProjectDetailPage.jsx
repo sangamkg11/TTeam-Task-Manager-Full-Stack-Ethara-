@@ -94,7 +94,9 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="page">
-      <button className="back-link" onClick={() => navigate("/projects")}>Back to projects</button>
+      <button className="back-link" onClick={() => navigate("/projects")}>
+        Back to projects
+      </button>
       <h1>{project.name}</h1>
       <p>{project.description}</p>
       <section>
@@ -153,12 +155,15 @@ export default function ProjectDetailPage() {
               <strong>{taskItem.title}</strong>
               <p>{taskItem.description}</p>
               <small>
-                Status: {taskItem.status} | Assignee: {taskItem.assignee?.email || "Unassigned"}
+                Status: {taskItem.status} | Assignee:{" "}
+                {taskItem.assignee?.email || "Unassigned"}
               </small>
               <div className="task-actions">
                 <select
                   value={taskItem.status}
-                  onChange={(e) => updateTaskStatus(taskItem.id, e.target.value)}
+                  onChange={(e) =>
+                    updateTaskStatus(taskItem.id, e.target.value)
+                  }
                 >
                   <option value="TODO">TODO</option>
                   <option value="IN_PROGRESS">IN_PROGRESS</option>

@@ -32,9 +32,13 @@ export default function DashboardPage({ user }) {
       )}
       <div className="stats-grid">
         <div className="stat-card">To Do: {dashboard.counts.TODO}</div>
-        <div className="stat-card">In Progress: {dashboard.counts.IN_PROGRESS}</div>
+        <div className="stat-card">
+          In Progress: {dashboard.counts.IN_PROGRESS}
+        </div>
         <div className="stat-card">Done: {dashboard.counts.DONE}</div>
-        <div className="stat-card overdue">Overdue: {dashboard.counts.overdue}</div>
+        <div className="stat-card overdue">
+          Overdue: {dashboard.counts.overdue}
+        </div>
       </div>
       <section>
         <h2>Recent Tasks</h2>

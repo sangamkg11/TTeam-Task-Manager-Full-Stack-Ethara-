@@ -1,5 +1,5 @@
 {
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://your-heroku-app.herokuapp.com/api/$1" }
+    { "source": "/api/(.*)", "destination": "https://tteam-task-manager-full-stack-ethara-production.up.railway.app/api/$1" }
   ]
 }

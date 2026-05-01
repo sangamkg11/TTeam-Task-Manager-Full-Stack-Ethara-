@@ -26,7 +26,9 @@ export default function SignupPage({ onAuth }) {
       navigate("/dashboard");
     } catch (err) {
       setError(
-        err?.detail || err?.email?.[0] || err?.username?.[0] ||
+        err?.detail ||
+          err?.email?.[0] ||
+          err?.username?.[0] ||
           JSON.stringify(err) ||
           "Registration failed",
       );
